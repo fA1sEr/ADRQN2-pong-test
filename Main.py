@@ -35,12 +35,12 @@ HIDDEN_SIZE = 768 # Size of the third convolutional layer when flattened
 
 EPOCHS = 20000000 # Epochs for training (1 epoch = 200 training Games and 10 test episodes)
 GAMES_PER_EPOCH = 200 # How actions to be taken per epoch
-EPISODES_TO_TEST = 10 # How many test episodes to be run per epoch for logging performance
+EPISODES_TO_TEST = 100 # How many test episodes to be run per epoch for logging performance
 EPISODE_TO_WATCH = 10 # How many episodes to watch after training is complete
 
 TAU = 0.99 # How much the target network should be updated towards the online network at each update
 
-LOAD_MODEL = False # Load a saved model?
+LOAD_MODEL = True # Load a saved model?
 SAVE_MODEL = True # Save a model while training?
 SKIP_LEARNING = False # Skip training completely and just watch?
 
@@ -90,127 +90,17 @@ trainables = tf.trainable_variables()
 
 targetOps = updateTargetGraph(trainables, TAU)
 
-if LOAD_MODEL:
-    print("Loading model from: ", model_savefile)
-    saver.restore(SESSION, model_savefile)
-else:
-    init = tf.global_variables_initializer()
-    SESSION.run(init)
+print("Loading model from: ", model_savefile)
+saver.restore(SESSION, model_savefile)
 
 ##########################################
+print("\nTesting...")
 
-if not SKIP_LEARNING:
-    time_start = time()
-    print("\nFilling out replay memory")
-    updateTarget(targetOps, SESSION)
-
+for test_step in range(EPISODES_TO_TEST):
+    game.reset()
     agent.reset_cell_state()
-    state = game.get_state()
-    for _ in range(RANDOM_WANDER_STEPS):
-        if not LOAD_MODEL:
-            action = agent.random_action()
-        else:
-            action = agent.act(game.get_last_action(), state)
-        img_state, reward, done = game.make_action(action)
-        if not done:
-            state_new = img_state
-        else:
-            state_new = None
-
-        agent.add_transition(state, action, reward, state_new, done)
-        state = state_new
-
-        if done:
-            game.reset()
-            agent.reset_cell_state()
-            state = game.get_state()
-
-    max_avgR = -10000.0
-
-    for epoch in range(EPOCHS):
-        print("\n\nEpoch %d\n-------" % (epoch + 1))
-        print("Training...")
-
-        learning_step = 0
-        for games_cnt in range(GAMES_PER_EPOCH):
-            game.reset()
-            agent.reset_cell_state()
-            state = game.get_state()
-            while True:
-                learning_step += 1
-                action = agent.act(state)
-                img_state, reward, done = game.make_action(action)
-                if not done:
-                    state_new = img_state
-                else:
-                    state_new = None
-                agent.add_transition(state, action, reward, state_new, done)
-                state = state_new
-
-                if learning_step % UPDATE_FREQUENCY == 0:
-                    agent.learn_from_memory()
-                if learning_step % COPY_FREQUENCY == 0:
-                    updateTarget(targetOps, SESSION)
-
-                if done:
-                    print("Epoch %d Train Game %d get %.1f" % (epoch, games_cnt, game.get_total_reward()))
-                    break
-            if SAVE_MODEL and games_cnt % 10 == 0:
-                saver.save(SESSION, model_savefile)
-                print("Saving the network weigths to:", model_savefile)
-
-        print("\nTesting...")
-
-        test_scores = []
-        for test_step in range(EPISODES_TO_TEST):
-            game.reset()
-            agent.reset_cell_state()
-            while not game.is_terminared():
-                state = game.get_state()
-                action = agent.act(state, train=False)
-                game.make_action(action)
-            test_scores.append(game.get_total_reward())
-
-        test_scores = np.array(test_scores)
-        print("Results: mean: %.1f±%.1f," % (test_scores.mean(), test_scores.std()),
-              "min: %.1f" % test_scores.min(), "max: %.1f" % test_scores.max())
-
-        if SAVE_MODEL:
-            saveScore(test_scores.mean())
-            saver.save(SESSION, model_savefile)
-            print("Saving the network weigths to:", model_savefile)
-            if test_scores.mean() > max_avgR:
-                max_avgR = test_scores.mean()
-                saver.save(SESSION, max_model_savefile)
-
-        print("Total ellapsed time: %.2f minutes" % ((time() - time_start) / 60.0))
-'''
-print("TIME TO WATCH!!")
-# Reinitialize the game with window visible
-game.close()
-game.set_window_visible(True)
-game.set_mode(Mode.ASYNC_PLAYER)
-game.init()
-score = []
-for _ in trange(EPISODE_TO_WATCH, leave=False):
-    game.new_episode()
-    agent.reset_cell_state()
-    while not game.is_episode_finished():
-        state = preprocess(game.get_state().screen_buffer)
+    while not game.is_terminared():
+        state = game.get_state()
         action = agent.act(state, train=False)
-        game.set_action(actions[action])
-        for i in range(FRAME_REPEAT):
-            game.advance_action()
-            done = game.is_episode_finished()
-            if done:
-                break
-
-    # Sleep between episodes
-    sleep(1.0)
-    score.append(game.get_total_reward())
-score = np.array(score)
-game.close()
-print("Results: mean: %.1f±%.1f," % (score.mean(), score.std()),
-          "min: %.1f" % score.min(), "max: %.1f" % score.max())
-'''
-#just test
+        game.make_action(action)
+    saveScore(game.get_total_reward())
