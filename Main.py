@@ -35,7 +35,7 @@ HIDDEN_SIZE = 768 # Size of the third convolutional layer when flattened
 
 EPOCHS = 20000000 # Epochs for training (1 epoch = 200 training Games and 10 test episodes)
 GAMES_PER_EPOCH = 200 # How actions to be taken per epoch
-EPISODES_TO_TEST = 5 # How many test episodes to be run per epoch for logging performance
+EPISODES_TO_TEST = 50 # How many test episodes to be run per epoch for logging performance
 EPISODE_TO_WATCH = 10 # How many episodes to watch after training is complete
 
 TAU = 0.99 # How much the target network should be updated towards the online network at each update
