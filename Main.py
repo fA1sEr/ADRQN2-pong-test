@@ -11,7 +11,7 @@ from Agent import Agent
 from GameSimulator import GameSimulator
 
 # to choose gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 
 FRAME_REPEAT = 4 # How many frames 1 action should be repeated
 UPDATE_FREQUENCY = 4 # How many actions should be taken between each network update
@@ -35,7 +35,7 @@ HIDDEN_SIZE = 768 # Size of the third convolutional layer when flattened
 
 EPOCHS = 20000000 # Epochs for training (1 epoch = 200 training Games and 10 test episodes)
 GAMES_PER_EPOCH = 200 # How actions to be taken per epoch
-EPISODES_TO_TEST = 100 # How many test episodes to be run per epoch for logging performance
+EPISODES_TO_TEST = 5 # How many test episodes to be run per epoch for logging performance
 EPISODE_TO_WATCH = 10 # How many episodes to watch after training is complete
 
 TAU = 0.99 # How much the target network should be updated towards the online network at each update
@@ -45,7 +45,7 @@ SAVE_MODEL = True # Save a model while training?
 SKIP_LEARNING = False # Skip training completely and just watch?
 
 max_model_savefile = "train_data/max_model/max_model.ckpt"
-model_savefile = "train_data/model.ckpt" # Name and path of the model
+model_savefile = "../ADRQN2-pong0.5/train_data/max_model/max_model.ckpt" # Name and path of the model
 reward_savefile = "train_data/Rewards.txt"
 
 ##########################################
@@ -96,6 +96,8 @@ saver.restore(SESSION, model_savefile)
 ##########################################
 print("\nTesting...")
 
+test_scores = []
+
 for test_step in range(EPISODES_TO_TEST):
     game.reset()
     agent.reset_cell_state()
@@ -103,4 +105,11 @@ for test_step in range(EPISODES_TO_TEST):
         state = game.get_state()
         action = agent.act(state, train=False)
         game.make_action(action)
-    saveScore(game.get_total_reward())
+    now_score = game.get_total_reward()
+    saveScore(now_score)
+    test_scores.append(now_score)
+
+test_scores = np.array(test_scores)
+my_file = open(reward_savefile, 'a')  # Name and path of the reward text file
+my_file.write("%.1f (±%.1f)  min:%.1f  max:%.1f\n" % (test_scores.mean(), test_scores.std(), test_scores.min(), test_scores.max()))
+my_file.close()
